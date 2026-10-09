@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ロットアップ複利計算</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDF1F4; --panel:#FFFFFF; --ink:#16283A; --muted:#5B6B7B; --line:#CBD5DE;
+  --accent:#1F5FA8; --step:#C9821A; --fill:rgba(201,130,26,.16); --plain:#8A97A5;
+  --plus:#1B7A55; --minus:#B3402F; --focus:#1F5FA8;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1720; --panel:#17212C; --ink:#E4ECF3; --muted:#93A3B3; --line:#2B3947;
+    --accent:#6FAEEA; --step:#E8A94A; --fill:rgba(232,169,74,.18); --plain:#7D8B99;
+    --plus:#5FC79A; --minus:#F08A78; --focus:#6FAEEA;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1720; --panel:#17212C; --ink:#E4ECF3; --muted:#93A3B3; --line:#2B3947;
+  --accent:#6FAEEA; --step:#E8A94A; --fill:rgba(232,169,74,.18); --plain:#7D8B99;
+  --plus:#5FC79A; --minus:#F08A78; --focus:#6FAEEA;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+  font-size:16px; line-height:1.6; font-variant-numeric:tabular-nums;
+}
+main{max-width:760px; margin:0 auto; padding:20px 16px 48px}
+h1{font-size:1.5rem; margin:4px 0 4px; font-weight:700; letter-spacing:.01em}
+.lead{margin:0 0 18px; color:var(--muted); font-size:.92rem}
+section{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:14px}
+h2{font-size:1rem; margin:0 0 12px; font-weight:700}
+
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:12px 14px}
+@media (max-width:480px){.grid{grid-template-columns:1fr}}
+label.f{display:block; font-size:.88rem; font-weight:500}
+label.f span.hint{display:block; font-weight:400; color:var(--muted); font-size:.78rem; margin-top:2px}
+.inp{position:relative; margin-top:4px}
+.inp input{
+  width:100%; padding:9px 38px 9px 10px; font:inherit; font-size:1.05rem; color:var(--ink);
+  background:var(--bg); border:1px solid var(--line); border-radius:6px; font-variant-numeric:tabular-nums;
+}
+.inp .u{position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:.85rem; pointer-events:none}
+input:focus-visible, .seg input:focus-visible + span, .chk input:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+
+.modes{display:flex; gap:0; margin-top:14px; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+.seg{flex:1; cursor:pointer}
+.seg input{position:absolute; opacity:0; pointer-events:none}
+.seg span{display:block; text-align:center; padding:8px 6px; font-size:.9rem; color:var(--muted)}
+.seg + .seg span{border-left:1px solid var(--line)}
+.seg input:checked + span{background:var(--accent); color:#fff; font-weight:700}
+.modenote{margin:8px 0 0; font-size:.82rem; color:var(--muted); min-height:2.6em}
+.err{margin:10px 0 0; color:var(--minus); font-size:.9rem; font-weight:500}
+.err:empty{display:none}
+
+.legend{display:flex; flex-wrap:wrap; gap:6px 16px; font-size:.8rem; color:var(--muted); margin:0 0 8px}
+.legend i{display:inline-block; width:18px; height:0; border-top:3px solid; vertical-align:middle; margin-right:5px}
+.legend i.stair{height:10px; border:0; background:var(--fill); border-top:2px solid var(--step)}
+.legend i.dash{border-top-style:dashed}
+.chart{width:100%; overflow:hidden}
+.chart svg{display:block; width:100%; height:auto}
+.chart .gl{stroke:var(--line); stroke-width:1}
+.chart text{fill:var(--muted); font-size:11px; font-family:inherit}
+
+dl.sum{display:grid; grid-template-columns:1fr 1fr; gap:12px 14px; margin:0}
+@media (max-width:480px){dl.sum{grid-template-columns:1fr}}
+dl.sum dt{font-size:.8rem; color:var(--muted)}
+dl.sum dd{margin:0; font-size:1.25rem; font-weight:700}
+dl.sum dd small{font-size:.8rem; font-weight:500; color:var(--muted); margin-left:4px}
+.pos{color:var(--plus)} .neg{color:var(--minus)}
+
+.tools{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px}
+.tools h2{margin:0}
+.chk{font-size:.85rem; display:flex; align-items:center; gap:6px; cursor:pointer}
+.tablewrap{max-height:380px; overflow:auto; border:1px solid var(--line); border-radius:8px}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:.88rem}
+th,td{padding:7px 10px; text-align:right; white-space:nowrap}
+th{position:sticky; top:0; background:var(--panel); border-bottom:1px solid var(--line); font-weight:700; color:var(--muted); font-size:.8rem}
+td{border-bottom:1px solid var(--line)}
+td:first-child,th:first-child{text-align:left}
+tr.up td:first-child{box-shadow:inset 3px 0 0 var(--step)}
+tr.dn td:first-child{box-shadow:inset 3px 0 0 var(--minus)}
+.tag{display:inline-block; margin-left:8px; padding:0 6px; border-radius:4px; font-size:.72rem; font-weight:700; color:var(--step); border:1px solid var(--step)}
+.tag.dn{color:var(--minus); border-color:var(--minus)}
+.note{font-size:.8rem; color:var(--muted); margin:8px 0 0}
+
+.presets{display:flex; gap:6px; flex-wrap:wrap}
+.presets button{font:inherit; font-size:.82rem; padding:5px 10px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer}
+.presets .slot{min-width:32px; text-align:center}
+.presets .slot.filled{border-color:var(--accent); color:var(--accent); font-weight:700}
+.presets .presetToggle{color:var(--muted)}
+.presets .presetToggle.active{background:var(--accent); border-color:var(--accent); color:#fff}
+.presets button:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+  <h1>ロットアップ複利計算</h1>
+  <p class="lead">利益をそのまま複利にせず、刻み額ごとにロットを上げていく運用を試算します。</p>
+
+  <section aria-labelledby="h-in">
+    <div class="tools">
+      <h2 id="h-in">条件</h2>
+      <div class="presets" id="presets" role="group" aria-label="設定の保存">
+        <button type="button" class="presetToggle" id="presetSave">保存</button>
+        <button type="button" class="slot" data-i="0">1</button>
+        <button type="button" class="slot" data-i="1">2</button>
+        <button type="button" class="slot" data-i="2">3</button>
+        <button type="button" class="slot" data-i="3">4</button>
+        <button type="button" class="slot" data-i="4">5</button>
+      </div>
+    </div>
+    <p class="note" id="presetNote"></p>
+    <div class="grid">
+      <label class="f">初期資金
+        <div class="inp"><input id="init" type="number" inputmode="decimal" step="any" min="0" value="1000000"><span class="u">円</span></div>
+      </label>
+      <label class="f">1回あたりの利率
+        <div class="inp"><input id="rate" type="number" inputmode="decimal" step="any" value="1"><span class="u">%</span></div>
+        <span class="hint">マイナスも入力できます</span>
+      </label>
+      <label class="f">回数
+        <div class="inp"><input id="n" type="number" inputmode="numeric" step="1" min="1" max="10000" value="120"><span class="u">回</span></div>
+        <span class="hint">1〜10000</span>
+      </label>
+      <label class="f">ロットアップの刻み額
+        <div class="inp"><input id="step" type="number" inputmode="decimal" step="any" min="0" value="200000"><span class="u">円</span></div>
+        <span class="hint">0 なら刻みなし（通常の複利）</span>
+      </label>
+    </div>
+
+    <div class="modes" role="radiogroup" aria-label="ロットの決め方">
+      <label class="seg"><input type="radio" name="mode" value="balance" checked><span>残高ベース</span></label>
+      <label class="seg"><input type="radio" name="mode" value="profit"><span>利益ベース</span></label>
+    </div>
+    <p class="modenote" id="modenote"></p>
+    <p class="err" id="err" role="alert"></p>
+  </section>
+
+  <section aria-labelledby="h-sum">
+    <h2 id="h-sum">結果</h2>
+    <dl class="sum" id="sum"></dl>
+  </section>
+
+  <section aria-labelledby="h-tbl">
+    <div class="tools">
+      <h2 id="h-tbl">回ごとの内訳</h2>
+      <label class="chk"><input type="checkbox" id="onlyChange">ロットが変わった回だけ表示</label>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>回</th><th>運用基準額</th><th>段数</th><th>損益</th><th>残高</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="note" id="tblnote"></p>
+  </section>
+
+  <section aria-labelledby="h-chart">
+    <h2 id="h-chart">資金の推移</h2>
+    <div class="legend" id="legend"></div>
+    <div class="chart" id="chart"></div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toLocaleString('ja-JP');
+const sgn = n => (n >= 0 ? '+' : '−') + fmt(Math.abs(n));
+function short(n){
+  const a = Math.abs(n);
+  if (a >= 1e8) return +(n/1e8).toFixed(2) + '億';
+  if (a >= 1e4) return +(n/1e4).toFixed(1) + '万';
+  return String(Math.round(n));
+}
+
+const MODE_NOTE = {
+  balance: '残高が刻み額の何倍あるかでロットが決まります。例：刻み20万円・残高65万円 → 基準額60万円。残高が刻み額に満たない間は残高をそのまま基準にします。',
+  profit:  '利益が刻み額たまるごとにロットが1段上がります。基準額 ＝ 初期資金 ＋ 刻み額 × 段数。損失が出ると段数は下がります。'
+};
+
+let last = null;
+
+function compute(){
+  const init = parseFloat($('init').value);
+  const ratePct = parseFloat($('rate').value);
+  const n = Math.floor(parseFloat($('n').value));
+  const step = $('step').value === '' ? 0 : parseFloat($('step').value);
+  const mode = document.querySelector('input[name=mode]:checked').value;
+
+  let err = '';
+  if (!(init > 0)) err = '初期資金は0より大きい数値を入力してください。';
+  else if (!isFinite(ratePct)) err = '利率を数値で入力してください。';
+  else if (!(n >= 1 && n <= 10000)) err = '回数は1〜10000の整数で入力してください。';
+  else if (!(step >= 0)) err = '刻み額は0以上の数値を入力してください。';
+  $('err').textContent = err;
+  if (err) return null;
+
+  const r = ratePct / 100;
+  const levelOf = bal => {
+    if (step <= 0) return 0;
+    return mode === 'balance'
+      ? Math.floor(bal / step + 1e-9)
+      : Math.floor((bal - init) / step + 1e-9);
+  };
+  const baseOf = (bal, lv) => {
+    if (step <= 0) return bal;
+    if (mode === 'balance') return lv > 0 ? lv * step : bal;
+    return Math.max(init + lv * step, 0);
+  };
+
+  const bal = [init], full = [init], simple = [init], bases = [], rows = [];
+  let b = init, f = init, prevLv = levelOf(init);
+  for (let i = 1; i <= n; i++){
+    const lv = levelOf(b);
+    const base = baseOf(b, lv);
+    const profit = base * r;
+    b += profit;
+    f *= (1 + r);
+    bal.push(b); full.push(f); simple.push(init + init * r * i); bases.push(base);
+    rows.push({ i, base, lv, profit, bal: b, change: step > 0 ? Math.sign(lv - prevLv) : 0 });
+    prevLv = lv;
+    if (!isFinite(b) || !isFinite(f)) { $('err').textContent = '数値が大きくなりすぎました。条件を見直してください。'; return null; }
+  }
+  return { init, r, n, step, mode, bal, full, simple, bases, rows };
+}
+
+function drawChart(d){
+  const W = 640, H = 300, L = 54, R = 12, T = 12, B = 28;
+  const series = [d.bal, d.full, d.simple];
+  if (d.step > 0) series.push(d.bases);
+  let lo = Infinity, hi = -Infinity;
+  series.forEach(s => s.forEach(v => { if (v < lo) lo = v; if (v > hi) hi = v; }));
+  if (hi === lo) hi = lo + 1;
+  const raw = (hi - lo) / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / mag;
+  const st = (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * mag;
+  const y0 = Math.floor(lo / st) * st, y1 = Math.ceil(hi / st) * st;
+  const xs = i => L + (W - L - R) * i / d.n;
+  const ys = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
+
+  let g = '';
+  for (let v = y0; v <= y1 + st / 2; v += st){
+    g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${ys(v)}" y2="${ys(v)}"/>` +
+         `<text x="${L - 6}" y="${ys(v) + 4}" text-anchor="end">${short(v)}</text>`;
+  }
+  for (let k = 0; k <= 4; k++){
+    const i = Math.round(d.n * k / 4);
+    g += `<text x="${xs(i)}" y="${H - 8}" text-anchor="${k === 0 ? 'start' : k === 4 ? 'end' : 'middle'}">${i}回</text>`;
+  }
+
+  const poly = arr => {
+    const s = Math.max(1, Math.ceil(d.n / 600)); const pts = [];
+    for (let i = 0; i <= d.n; i += s) pts.push(`${xs(i).toFixed(1)},${ys(arr[i]).toFixed(1)}`);
+    if ((d.n % s) !== 0) pts.push(`${xs(d.n).toFixed(1)},${ys(arr[d.n]).toFixed(1)}`);
+    return pts.join(' ');
+  };
+
+  let stair = '';
+  if (d.step > 0){
+    let cur = d.bases[0];
+    let p = `M${xs(0)},${ys(cur)}`;
+    for (let i = 2; i <= d.n; i++){
+      if (d.bases[i - 1] !== cur){
+        cur = d.bases[i - 1];
+        p += ` H${xs(i - 1).toFixed(1)} V${ys(cur).toFixed(1)}`;
+      }
+    }
+    p += ` H${xs(d.n)}`;
+    const area = p + ` V${ys(y0)} H${xs(0)} Z`;
+    stair = `<path d="${area}" fill="var(--fill)" stroke="none"/>` +
+            `<path d="${p}" fill="none" stroke="var(--step)" stroke-width="2"/>`;
+  }
+
+  $('chart').innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="残高と運用基準額の推移グラフ">` + g + stair +
+    `<polyline points="${poly(d.simple)}" fill="none" stroke="var(--plain)" stroke-width="1.5"/>` +
+    `<polyline points="${poly(d.full)}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 4"/>` +
+    `<polyline points="${poly(d.bal)}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>` +
+    `</svg>`;
+
+  $('legend').innerHTML =
+    `<span><i style="border-color:var(--accent)"></i>残高</span>` +
+    (d.step > 0 ? `<span><i class="stair"></i>運用基準額</span>` : '') +
+    `<span><i class="dash" style="border-color:var(--accent)"></i>通常の複利（刻みなし）</span>` +
+    `<span><i style="border-color:var(--plain);border-top-width:2px"></i>複利なし</span>`;
+}
+
+function drawSummary(d){
+  const finalBal = d.bal[d.n];
+  const gain = finalBal - d.init;
+  const pct = gain / d.init * 100;
+  const fullDiff = finalBal - d.full[d.n];
+  const lvStart = d.rows[0].lv, lvEnd = d.rows[d.rows.length - 1].lv;
+  const ups = d.rows.filter(x => x.change > 0).length;
+  const cls = v => v >= 0 ? 'pos' : 'neg';
+  let html =
+    `<div><dt>最終残高</dt><dd>${fmt(finalBal)}<small>円</small></dd></div>` +
+    `<div><dt>損益</dt><dd class="${cls(gain)}">${sgn(gain)}<small>円（${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)}%）</small></dd></div>`;
+  if (d.step > 0){
+    html += `<div><dt>ロットアップの回数</dt><dd>${ups}<small>回（段数 ${lvStart} → ${lvEnd}）</small></dd></div>`;
+  } else {
+    html += `<div><dt>ロットアップ</dt><dd>なし<small>通常の複利</small></dd></div>`;
+  }
+  html += `<div><dt>通常の複利（刻みなし）との差</dt><dd class="${cls(fullDiff)}">${sgn(fullDiff)}<small>円</small></dd></div>`;
+  $('sum').innerHTML = html;
+}
+
+function drawTable(d){
+  const only = $('onlyChange').checked;
+  let list = only ? d.rows.filter(x => x.change !== 0) : d.rows;
+  const LIMIT = 1000;
+  const shown = list.slice(0, LIMIT);
+  $('rows').innerHTML = shown.map(x => {
+    const cls = x.change > 0 ? 'up' : x.change < 0 ? 'dn' : '';
+    const tag = x.change > 0 ? '<span class="tag">ロットアップ</span>' : x.change < 0 ? '<span class="tag dn">ロットダウン</span>' : '';
+    return `<tr class="${cls}"><td>${x.i}${tag}</td><td>${fmt(x.base)}</td><td>${d.step > 0 ? x.lv : '−'}</td>` +
+           `<td class="${x.profit >= 0 ? 'pos' : 'neg'}">${sgn(x.profit)}</td><td>${fmt(x.bal)}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">ロットが変わった回はありません</td></tr>';
+  $('tblnote').textContent = list.length > LIMIT
+    ? `${list.length}行のうち先頭${LIMIT}行を表示しています。「ロットが変わった回だけ表示」で絞り込めます。`
+    : '損益は、その回の運用基準額 × 利率です。金額は円未満を四捨五入して表示しています。';
+}
+
+function render(){
+  $('modenote').textContent = MODE_NOTE[document.querySelector('input[name=mode]:checked').value];
+  const d = compute();
+  if (!d){
+    $('chart').innerHTML = ''; $('legend').innerHTML = ''; $('sum').innerHTML = '';
+    $('rows').innerHTML = ''; $('tblnote').textContent = '';
+    last = null; return;
+  }
+  last = d;
+  drawChart(d); drawSummary(d); drawTable(d);
+}
+
+['init','rate','n','step'].forEach(id => $(id).addEventListener('input', render));
+document.querySelectorAll('input[name=mode]').forEach(el => el.addEventListener('change', render));
+$('onlyChange').addEventListener('change', () => { if (last) drawTable(last); });
+
+// ---- 設定の保存（クッキー・5枠） ----
+const PKEY = 'lotup_presets_v1';
+function getCookie(name){
+  const m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function setCookie(name, value, days){
+  const d = new Date(); d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+}
+
+let presets = [null, null, null, null, null];
+try {
+  const raw = getCookie(PKEY);
+  if (raw){
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) for (let i = 0; i < 5; i++) presets[i] = arr[i] || null;
+  }
+} catch (e) { /* 壊れたクッキーは無視 */ }
+
+let saveMode = false;
+
+function currentSettings(){
+  return {
+    init: $('init').value, rate: $('rate').value, n: $('n').value, step: $('step').value,
+    mode: document.querySelector('input[name=mode]:checked').value
+  };
+}
+function applySettings(s){
+  $('init').value = s.init; $('rate').value = s.rate; $('n').value = s.n; $('step').value = s.step;
+  const r = document.querySelector(`input[name=mode][value="${s.mode}"]`);
+  if (r) r.checked = true;
+  render();
+}
+function summarize(s){
+  const modeLabel = s.mode === 'balance' ? '残高ベース' : '利益ベース';
+  return `初期資金${fmt(parseFloat(s.init) || 0)}円・利率${s.rate}%・${s.n}回・刻み${fmt(parseFloat(s.step) || 0)}円（${modeLabel}）`;
+}
+function refreshSlots(){
+  document.querySelectorAll('.slot').forEach(btn => {
+    const i = +btn.dataset.i, s = presets[i];
+    btn.classList.toggle('filled', !!s);
+    btn.title = s ? summarize(s) : '未保存';
+  });
+}
+function setSaveMode(on){
+  saveMode = on;
+  $('presetSave').classList.toggle('active', on);
+  $('presetNote').textContent = on
+    ? '保存先のスロット番号をタップしてください。'
+    : 'スロット番号をタップで呼び出し。「保存」を押してからタップすると、今の条件をそこに保存します。';
+}
+
+$('presetSave').addEventListener('click', () => setSaveMode(!saveMode));
+document.querySelectorAll('.slot').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const i = +btn.dataset.i;
+    if (saveMode){
+      presets[i] = currentSettings();
+      setCookie(PKEY, JSON.stringify(presets), 365);
+      refreshSlots();
+      setSaveMode(false);
+    } else if (presets[i]){
+      applySettings(presets[i]);
+    }
+  });
+});
+refreshSlots();
+setSaveMode(false);
+
+render();
+</script>
+</body>
+</html>
